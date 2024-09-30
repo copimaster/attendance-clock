@@ -1,0 +1,167 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="VTACheckClock.Views.CheckClockMainView" 
+			FontFamily="Microsoft Sans Serif">
+	<Grid RowDefinitions="*, Auto">
+		<Grid Grid.Row="0" ColumnDefinitions="*, *, *">
+			<DockPanel Grid.Column="0" Background="White">
+				<StackPanel DockPanel.Dock="Top" Height="100" Background="#f0f0f0">
+					<Image Source="/Assets/DefaultLogo.png" Height="100" Margin="0" Stretch="Uniform"/>
+				</StackPanel>
+				<Grid>
+					<!--<ScrollViewer Name="dgScrollViewer">-->
+						<!--<DataGrid Name="dgAttsList" ItemsSource="{Binding AttsList}" AutoGenerateColumns="False" CanUserSortColumns="False" SelectedIndex="{ Binding SelectedIndex }" VerticalScrollBarVisibility="Visible">
+							<DataGrid.Columns>
+								<DataGridTemplateColumn Header="Colaborador" Width="2.5*">
+									<DataGridTemplateColumn.CellTemplate>
+										<DataTemplate>
+											<TextBlock Text="{Binding FullName}" TextTrimming="1" ToolTip.Placement="Right" ToolTip.ShowDelay="10" VerticalAlignment="Center" Padding="8 0">
+												<ToolTip.Tip>
+													<UserControl Content="{Binding FullName}" MaxHeight="500"/>
+												</ToolTip.Tip>
+											</TextBlock>										
+										</DataTemplate>
+									</DataGridTemplateColumn.CellTemplate>
+								</DataGridTemplateColumn>
+								<DataGridTextColumn Header="Hora" Binding="{Binding EventTime}" Width="2*"  IsReadOnly="true"/>
+								<DataGridTextColumn Header="Evento" Binding="{Binding EventType}" Width="1*" IsReadOnly="true" />
+							</DataGrid.Columns>
+						</DataGrid>-->
+					<!--</ScrollViewer>-->
+					<DockPanel>
+						<Grid RowDefinitions="*" ColumnDefinitions="*, *, *" DockPanel.Dock="Top" Height="25">
+							<Grid.Styles>
+								<Style Selector="TextBlock">
+									<Setter Property="VerticalAlignment" Value="Center"/>
+									<Setter Property="FontSize" Value="14"/>
+								</Style>
+							</Grid.Styles>
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Colaborador" Padding="10 0 0 0"/>
+							<TextBlock Grid.Row="0" Grid.Column="1" Text="Hora" HorizontalAlignment="Center"/>
+							<TextBlock Grid.Row="0" Grid.Column="2" Text="Evento" HorizontalAlignment="Center"/>
+						</Grid>
+						<ListBox DockPanel.Dock="Bottom" Name="lsbAttsList" ItemsSource="{Binding AttsList}" SelectedIndex="{Binding SelectedIndex}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+							<ListBox.Styles>
+								<Style Selector="ListBoxItem">
+									<Setter Property="Padding" Value="4 8"/>
+								</Style>
+								<Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+									<Setter Property="Background" Value="#66aee7" />
+									<Setter Property="TextBlock.Foreground" Value="White" />
+								</Style>
+							</ListBox.Styles>
+							<ListBox.ItemTemplate>
+								<DataTemplate>
+									<Border CornerRadius="4">
+										<Grid>
+											<Grid.RowDefinitions>
+												<RowDefinition  />
+											</Grid.RowDefinitions>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="200" />
+												<ColumnDefinition Width="150" />
+												<ColumnDefinition Width="150" />
+											</Grid.ColumnDefinitions>
+
+											<TextBlock Grid.Column="0" Text="{Binding FullName}" TextTrimming="1" ToolTip.Placement="Right" ToolTip.ShowDelay="10">
+												<ToolTip.Tip>
+													<UserControl Content="{Binding FullName}" MaxHeight="500"/>
+												</ToolTip.Tip>
+											</TextBlock>
+											<TextBlock Grid.Column="1" Text="{Binding EventTime}" />
+											<TextBlock Grid.Column="2" Text="{Binding EventType}" />
+										</Grid>
+									</Border>
+								</DataTemplate>
+							</ListBox.ItemTemplate>
+							
+						</ListBox>
+					</DockPanel>
+				</Grid>
+			</DockPanel>
+
+			<Grid Grid.Column="1" Background="#d3d3d3">
+				<Grid RowDefinitions="Auto, Auto, *" ColumnDefinitions="*">
+					<TextBlock x:Name="lblTimer" Grid.Row="0" Grid.Column="0" Height="120" Background="#f0f0f0" Text="{Binding CurrentTime}" TextAlignment="Center" FontSize="100" MaxWidth="530" FontWeight="Bold" Padding="0 1 0 0"></TextBlock>
+					<StackPanel Grid.Row="1" Grid.Column="0" Height="120" Background="#ffffff">
+						<TextBlock Height="80" Name="lblEmpName" Text="{ Binding EmployeeName }" Foreground="#191979" FontWeight="Bold" FontSize="20" TextWrapping="Wrap" TextAlignment="Center" Padding="6 20 6 0" />
+						<TextBlock Height="40" Name="lblEmpEvent" Text="{ Binding EmployeeEvent }" Foreground="#a02213" FontWeight="Bold" FontSize="18" TextAlignment="Center" Padding="0 6 0 0" />
+					</StackPanel>
+					<Panel Grid.Row="2" Grid.Column="0">
+						<Grid RowDefinitions="*, Auto" ColumnDefinitions="*">
+							<Grid Grid.Row="0" Grid.Column="0">
+								<DataGrid Name="dgEmpPunches" ItemsSource="{Binding EmpPunches}" AutoGenerateColumns="False" CanUserSortColumns="False" SelectedIndex="{ Binding LastEmployeeEventItem }">
+									<DataGrid.Columns>
+										<DataGridTextColumn Header="Día" Binding="{Binding punchdate}" IsReadOnly="true" />
+										<DataGridTextColumn Header="Hora" Binding="{Binding punchtime}" Width="1*" IsReadOnly="true" />
+										<DataGridTextColumn Header="Evento" Binding="{Binding punchevent}" Width="1*" IsReadOnly="true" />
+									</DataGrid.Columns>
+								</DataGrid>
+							</Grid>
+							<Grid Grid.Row="1" Grid.Column="0" Height="60">
+								<Panel Background="#f0f0f0">
+									<StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="2 0 0 0">
+										<Button Command="{ Binding $parent[Window].DataContext.LogOutCommand }">
+											<Image Source="/Assets/btnExit.png" Height="40" />
+										</Button>
+										<Button Command="{ Binding $parent[Window].DataContext.PreviewLoggerCommand }">
+											<Image Source="/Assets/websocket.jpg" Height="40"/>
+										</Button>
+										<Button Name="Dialog" ToolTip.Tip="Shows a dialog">_Dialog</Button>
+									</StackPanel>
+
+									<Button HorizontalAlignment="Right" Width="50" Command="{ Binding $parent[Window].DataContext.LoginCommand }" Margin="0 0 2 0">
+										<Image Source="/Assets/btnSettings.png" Height="40"/>
+									</Button>
+								</Panel>
+							</Grid>
+						</Grid>
+					</Panel>
+				</Grid>
+			</Grid>
+
+			<DockPanel Grid.Column="2">
+				<Grid RowDefinitions="Auto, Auto, *" ColumnDefinitions="*" Background="#f0f0f0">
+					<StackPanel Grid.Row="0" Grid.Column="0" Height="40" Background="#ffffe0">
+						<TextBlock FontWeight="Bold" Foreground="#8c0000" FontSize="22" Padding="0 8 0 0" TextAlignment="Center">AVISOS:</TextBlock>
+					</StackPanel>
+					<TextBlock Grid.Row="1" Grid.Column="0" Height="80" Text="{ Binding NoticeTitle }" TextWrapping="Wrap" TextTrimming="1" FontWeight="Bold" Foreground="#20356a" FontSize="22" Padding="8 8 15 8" TextAlignment="Center" />
+					<Panel Grid.Row="2" Grid.Column="0">
+						<TextBlock IsVisible="{Binding NoticeCollectionEmpty}" Text="No se encontró ningún aviso para esta ubicación o no se pudieron cargar." TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" FontSize="18" Padding="8 8 15 8" />
+						<StackPanel IsVisible="{Binding !NoticeCollectionEmpty}">
+							<Panel VerticalAlignment="Top" Height="200">
+								<TextBlock Text="{ Binding NoticeBody }" TextWrapping="Wrap" TextTrimming="1" VerticalAlignment="Center" TextAlignment="Center" FontSize="18" Padding="8 0 8 0" />
+							</Panel>
+							<Image Name="NoticeImage" Source="{Binding NoticeImage}" Margin="10, 0" MaxHeight="400" />
+						</StackPanel>
+					</Panel>
+				</Grid>
+			</DockPanel>
+		</Grid>
+
+		<Grid Grid.Row="1" ColumnDefinitions="*, *, *" Margin="0, Auto" Height="30" Background="#f0f0f0">
+			<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+				<Grid Background="Red" IsVisible="{ Binding !IsNetConnected }">
+					<!--<Image Source="{SvgImage /Assets/cloud_offline.svg}" Height="25" />-->
+					<Image Source="/Assets/cloud_offline.png" Height="25" />
+				</Grid>
+				<Grid Background="#90ee90" IsVisible="{ Binding IsNetConnected }">
+					<Image Source="{SvgImage /Assets/cloud_online.svg}" Height="25" />
+				</Grid>
+				<Label IsVisible="{ Binding !IsNetConnected }" Content="{ Binding NetworkConStatus }" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="Red" />
+				<Label IsVisible="{ Binding IsNetConnected }" Content="{ Binding NetworkConStatus }" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="#90ee90" />
+				<Label Content="{ Binding Office }" FontSize="14" Padding="2 6 0 0" />
+			</StackPanel>
+			<TextBlock Grid.Column="1" IsVisible="{Binding !IsPusherConnected}" Text="{Binding Status}" Foreground="Red" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
+			<TextBlock Grid.Column="1" IsVisible="{Binding IsPusherConnected}" Text="{Binding Status}" Foreground="Blue" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
+			<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+				<Label Content="{ Binding CurrentLongDate }" FontSize="14" Padding="0 8 0 0" />
+				<Label FontSize="14" Padding="10 8 0 0" FontStyle="Italic">Powered by: </Label>
+				<Image Margin="4, 0" Source="/Assets/vt_software_logo.png" Height="20"></Image>
+			</StackPanel>
+		</Grid>
+	</Grid>
+</UserControl>

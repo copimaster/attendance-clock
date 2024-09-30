@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="VTACheckClock.Views.EventPromptWindow"
+				WindowStartupLocation="CenterScreen"
+				ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1" 
+				CanResize="False"
+				Height="220" Width="500" 
+				Background="WhiteSmoke"
+        Title="Event Prompt Window">
+	<Window.Styles>
+		<Style Selector="TextBlock">
+			<Setter Property="FontWeight" Value="Bold" />
+			<Setter Property="FontSize" Value="20" />
+			<Setter Property="TextWrapping" Value="Wrap" />
+			<Setter Property="TextAlignment" Value="Center" />
+		</Style>
+		<Style Selector="Button">
+			<Setter Property="FontWeight" Value="Bold" />
+			<Setter Property="FontSize" Value="20" />
+			<Setter Property="Cursor" Value="Hand" />
+			<Setter Property="Height" Value="40" />
+			<Setter Property="Foreground" Value="DarkSlateGray" />
+		</Style>
+	</Window.Styles>
+	<StackPanel Spacing="15" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center">
+		<TextBlock Text="{ Binding Message }" Foreground="Firebrick" />
+		<TextBlock Text="¿Está registrando su SALIDA o una nueva ENTRADA?" Foreground="DarkBlue" Padding="0 10 0 0" />
+		<DockPanel Margin="0 6 0 0">
+			<Button Name="btnExit" HorizontalAlignment="Left" Content="Salida" Background="Khaki" />
+			<Button Name="btnEnter" HorizontalAlignment="Right" Content="Entrada" Background="DarkSeaGreen" />
+		</DockPanel>
+	</StackPanel>
+</Window>

@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="450"
+        x:Class="VTACheckClock.Views.LoaderWindow"
+				Width="500" SizeToContent="Height"
+				WindowStartupLocation="CenterScreen"
+				ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1" 
+				CanResize="False"
+				Name="xLoaderWindow"
+        Title="Loader Window">
+	<Border BorderBrush="DarkBlue" CornerRadius="2" BorderThickness="1" Background="WhiteSmoke">
+		<StackPanel Margin="10">
+			<ProgressBar VerticalAlignment="Center" IsIndeterminate="True" Margin="10" Foreground="#e76f51" Background="#264653" Width="300"/>
+			<TextBlock Name="lblLoader" Text="{ Binding Message }" TextAlignment="Center" Foreground="Black" Margin="10" FontSize="20" />
+		</StackPanel>
+	</Border>
+</Window>

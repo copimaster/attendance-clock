@@ -1,0 +1,71 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:VTACheckClock"
+             x:Class="VTACheckClock.App"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             RequestedThemeVariant="Light">
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+      <!--<FluentTheme />-->
+		  <!--<StyleInclude Source="avares://Avalonia.Themes.Fluent/FluentTheme.xaml"/>-->
+      <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
+      <StyleInclude Source="avares://VTACheckClock/Icons.axaml" />
+
+      <Style Selector="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+      </Style>
+      <Style Selector="TextBox">
+        <Setter Property="CornerRadius" Value="4" />
+      </Style>
+      <Style Selector="ComboBox">
+        <Setter Property="CornerRadius" Value="4" />
+      </Style>
+
+      <!-- Estilos personalizados para DataGrid -->
+      <Style Selector="DataGrid">
+        <Setter Property="GridLinesVisibility" Value="None"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="LightGray"/>
+        <Setter Property="VerticalGridLinesBrush" Value="LightGray"/>
+        <Setter Property="Background" Value="White"/>
+      </Style>
+      
+      <Style Selector="DataGridColumnHeader">
+        <Setter Property="Background" Value="#f0f0f0"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+      </Style>
+      
+      <Style Selector="DataGridRow">
+        <Setter Property="Background" Value="White"/>
+      </Style>
+
+      <Style Selector=".dg-employee DataGridRow:nth-child(odd)">
+        <Setter Property="Background" Value="#f9f9f9"/>
+      </Style>
+      
+      <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="#e0e0e0"/>
+      </Style>
+
+      <!-- Estilo para la fila seleccionada -->
+      <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="#6a9ced"/>
+      </Style>
+      
+      <Style Selector="DataGridRow:selected TextBlock">
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background" Value="Transparent"/>
+      </Style>
+
+      <!-- Nuevo estilo para eliminar el borde de foco de celda -->
+      <Style Selector="DataGridCell:focus /template/ Rectangle">
+        <Setter Property="Stroke" Value="Red"/>
+        <Setter Property="StrokeThickness" Value="0"/>
+      </Style>
+	  </Application.Styles>
+</Application>
