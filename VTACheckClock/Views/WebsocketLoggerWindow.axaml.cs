@@ -24,6 +24,12 @@ namespace VTACheckClock.Views
                 Close();
             })));
 
+            this.WhenActivated(d => {
+                Dispatcher.UIThread.InvokeAsync(async () => {
+                    if (ViewModel != null) await ViewModel.InitializeAsync();
+                });
+            });
+
             //txtWSLogger.PropertyChanged += txtWSLoggerPropertyChanged;
             //_scroller = this.FindControl<ScrollViewer>("MessageLogScrollViewer");
             //_scroller = this.Get<ScrollViewer>("MessageLogScrollViewer");
@@ -44,7 +50,7 @@ namespace VTACheckClock.Views
 
         public void ScrollTextToEnd()
         {
-            Thread.Sleep(1000);
+            //Thread.Sleep(1000);
             //_scroller.ScrollToEnd();
         }
 

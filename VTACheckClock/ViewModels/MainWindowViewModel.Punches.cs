@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System;
 using System.Data;
@@ -12,8 +13,6 @@ using VTACheckClock.Services;
 using VTACheckClock.Services.Libs;
 using VTACheckClock.Views;
 using static VTACheckClock.Views.MessageBox;
-using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
 namespace VTACheckClock.ViewModels
 {
     partial class MainWindowViewModel

@@ -55,7 +55,7 @@ namespace VTACheckClock.Services.Auth
         {
             var response = await httpClient.PostAsync($"{API_URL}/api/auth/refresh?deviceId={deviceId}&apiKey={apiKey}", null);
             if (!response.IsSuccessStatusCode)
-                throw new AuthenticationException("Failed to refresh token");
+                throw new AuthenticationException($"Failed to refresh token: ({response.StatusCode}) {response.ReasonPhrase}");
 
             var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
             _currentToken = result?.Token;

@@ -4,12 +4,10 @@ using Microsoft.AspNetCore.SignalR.Client;
 using NLog;
 using System;
 using System.Collections.Concurrent;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using VTACheckClock.Models;
 using VTACheckClock.Services.Auth;
-using VTACheckClock.Services.Libs;
 
 
 namespace VTACheckClock.Services
@@ -164,8 +162,7 @@ namespace VTACheckClock.Services
             _hubConnection.On<string, PunchRecord>("ReceivePunch", (senderId, punch) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() => {
-                    _log.Info($"Message received: {JsonSerializer.Serialize(punch)}");
-
+                    //_log.Info($"Message received: {JsonSerializer.Serialize(punch)}");
                     MessageReceived?.Invoke(this, JsonSerializer.Serialize(punch));
                 });
             });

@@ -2,29 +2,27 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
 using Avalonia.Threading;
+using ClosedXML.Excel;
+using NLog;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using Avalonia.Input;
+using System.Threading.Tasks;
 using VTACheckClock.DBAccess;
 using VTACheckClock.Models;
-using VTACheckClock.ViewModels;
-using System.Threading.Tasks;
 using VTACheckClock.Services;
-using NLog;
+using VTACheckClock.ViewModels;
 using static VTACheckClock.Views.MessageBox;
-using ClosedXML.Excel;
-using System.IO;
 
 namespace VTACheckClock.Views
 {
@@ -37,6 +35,12 @@ namespace VTACheckClock.Views
         {
             InitializeComponent();
             this.WhenActivated(d => d(ViewModel!.CancelCommand.Subscribe(model => { Close(); })));
+
+            this.WhenActivated(d => {
+                Dispatcher.UIThread.InvokeAsync(async () => {
+                    if (ViewModel != null) await ViewModel.InitializeAsync();
+                });
+            });
 
             Attendances = [];
 
@@ -71,7 +75,7 @@ namespace VTACheckClock.Views
                 // Agregar columnas fijas
                 AddFixedColumns(newAttendanceGrid);
 
-                // Generar columnas din·micas para fechas
+                // Generar columnas din√°micas para fechas
                 var currentDate = startDate;
                 while (currentDate <= endDate)
                 {
@@ -103,7 +107,7 @@ namespace VTACheckClock.Views
             }
             catch (Exception exception)
             {
-                await ShowMessage("OperaciÛn inv·lida", "Error al generar el reporte de Asistencias: " + exception.Message, 450);
+                await ShowMessage("Operaci√≥n inv√°lida", "Error al generar el reporte de Asistencias: " + exception.Message, 450);
 
                 log.Warn("Error al generar el reporte de Asistencias: "+ exception.Message);
             }
@@ -179,7 +183,7 @@ namespace VTACheckClock.Views
                 return;
             }
 
-            // Filtrar la colecciÛn bas·ndose en el nombre
+            // Filtrar la colecci√≥n bas√°ndose en el nombre
             var filteredList = Attendances
                 .Where(record =>
                     record.EmployeeName.Contains(filtro, StringComparison.OrdinalIgnoreCase))
@@ -191,9 +195,9 @@ namespace VTACheckClock.Views
 
         private void AddColumnForDate(DataGrid attendanceGrid, string dateKey, string headerText)
         {
-            // Parsear la fecha para obtener el dÌa de la semana
+            // Parsear la fecha para obtener el d√≠a de la semana
             var date = DateTime.ParseExact(dateKey, "yyyyMMdd", CultureInfo.InvariantCulture);
-            var dayName = date.ToString("dddd", new CultureInfo("es-ES")); // Para nombres en espaÒol
+            var dayName = date.ToString("dddd", new CultureInfo("es-ES")); // Para nombres en espa√±ol
             dayName = char.ToUpper(dayName[0]) + dayName[1..].ToLower();
 
             var headerPanel = new StackPanel {
@@ -230,7 +234,7 @@ namespace VTACheckClock.Views
 
                     var attendanceTimeInfo = record.DailyStatus[dateKey];
 
-                    // Si es vacaciones o descanso, mantenemos el texto sin ediciÛn
+                    // Si es vacaciones o descanso, mantenemos el texto sin edici√≥n
                     if (attendanceTimeInfo.IsNonWorkingDate) {
                         return new TextBlock {
                             Text = attendanceTimeInfo.BenefitAlias,
@@ -244,7 +248,7 @@ namespace VTACheckClock.Views
                         };
                     }
 
-                    // Para valores de hora, permitimos ediciÛn con TimePicker
+                    // Para valores de hora, permitimos edici√≥n con TimePicker
                     //var timePicker = new TimePicker {
                     //    VerticalAlignment = VerticalAlignment.Center,
                     //    [!TimePicker.SelectedTimeProperty] = new Binding($"DailyStatus[{dateKey}]")
@@ -353,9 +357,9 @@ namespace VTACheckClock.Views
                             // Actualizar el modelo
                             //record.DailyStatus[dateKey] = e.NewTime.Value;
 
-                            // Opcional: Mostrar mensaje de Èxito
+                            // Opcional: Mostrar mensaje de √©xito
                             await Dispatcher.UIThread.InvokeAsync(() => {
-                                // Puedes mostrar una notificaciÛn o cambiar el color brevemente
+                                // Puedes mostrar una notificaci√≥n o cambiar el color brevemente
                                 timePicker.Background = new SolidColorBrush(Colors.LightGreen);
                                 Task.Delay(1000).ContinueWith(_ => {
                                     Dispatcher.UIThread.InvokeAsync(() => {
@@ -364,12 +368,12 @@ namespace VTACheckClock.Views
                                 });
                             });
                         } else {
-                            await ShowMessage("OperaciÛn inv·lida", "Se detectÛ un error al tratar de Actualizar el horario.", 350);
+                            await ShowMessage("Operaci√≥n inv√°lida", "Se detect√≥ un error al tratar de Actualizar el horario.", 350);
                         }
                     }
                     catch (Exception ex)
                     {
-                        await ShowMessage("OperaciÛn incompleta", "Error al actualizar el horario: " + ex.Message, 350);
+                        await ShowMessage("Operaci√≥n incompleta", "Error al actualizar el horario: " + ex.Message, 350);
 
                         // Manejar errores
                         await Dispatcher.UIThread.InvokeAsync(() => {
@@ -471,13 +475,13 @@ namespace VTACheckClock.Views
                     {
                         if (column is DataGridTemplateColumn templateColumn)
                         {
-                            // Extrae datos din·micos del diccionario
-                            var headerKey = GetHeaderKey(templateColumn.Tag); // Extraer clave din·mica
+                            // Extrae datos din√°micos del diccionario
+                            var headerKey = GetHeaderKey(templateColumn.Tag); // Extraer clave din√°mica
                             if (record.DailyStatus.TryGetValue(headerKey, out var attendanceTimeInfo))
                             {
                                 var cell = worksheet.Cell(rowIndex, colIndex);
                                 cell.Value = string.IsNullOrEmpty(attendanceTimeInfo?.Event) ? attendanceTimeInfo?.BenefitAlias: attendanceTimeInfo?.Event;
-                                // Aplicar estilos din·micos basados en el contenido
+                                // Aplicar estilos din√°micos basados en el contenido
                                 if (attendanceTimeInfo?.Event == "?" || !string.IsNullOrEmpty(attendanceTimeInfo?.BenefitAlias)) {
                                     cell.Style.Font.FontColor = XLColor.Red;
                                     cell.Style.Font.Bold = true;
@@ -487,7 +491,7 @@ namespace VTACheckClock.Views
                             }
                         }
                         else if (column is DataGridTextColumn textColumn) {
-                            // Si es una columna manual, obtÈn el Path del Binding
+                            // Si es una columna manual, obt√©n el Path del Binding
                             if (textColumn.Binding is Binding binding) {
                                 var columnBindingPath = binding.Path;
                                 var value = record.GetType().GetProperty(columnBindingPath)?.GetValue(record);
@@ -505,28 +509,28 @@ namespace VTACheckClock.Views
                     rowIndex++;
                 }
 
-                // Ajusta autom·ticamente el ancho de las columnas al contenido
+                // Ajusta autom√°ticamente el ancho de las columnas al contenido
                 worksheet.Columns().AdjustToContents();
 
                 // Guarda el archivo
                 var filePath = await FolderPickerService.OpenFolderBrowser() + @"\\DataGridExport.xlsx";
 
-                await ShowMessage("ExportaciÛn finalizada", "Las asistencias se han exportado en Excel en la ruta: \n\n" + filePath, 450);
+                await ShowMessage("Exportaci√≥n finalizada", "Las asistencias se han exportado en Excel en la ruta: \n\n" + filePath, 450);
 
                 workbook.SaveAs(filePath);
             }
             catch (Exception e) {
-                await ShowMessage("OperaciÛn inv·lida", "Error al exportar el Excel: " + e.Message, 350);
+                await ShowMessage("Operaci√≥n inv√°lida", "Error al exportar el Excel: " + e.Message, 350);
 
                 log.Warn("Error al exportar el Excel de Asistencias de empleados: " + e.Message);
             }
         }
 
         /// <summary>
-        /// MÈtodo para extraer texto del Header
+        /// M√©todo para extraer texto del Header
         /// </summary>
         /// <param name="headerContent"></param>
-        /// <returns>String Nombre din·mico del header como formato de fecha 'yyyyMMdd'</returns>
+        /// <returns>String Nombre din√°mico del header como formato de fecha 'yyyyMMdd'</returns>
         private static string GetHeaderText(object headerContent)
         {
             if (headerContent is string headerString) {
@@ -546,12 +550,12 @@ namespace VTACheckClock.Views
         }
 
         /// <summary>
-        /// MÈtodo para obtener la clave din·mica del Header
+        /// M√©todo para obtener la clave din√°mica del Header
         /// </summary>
         /// <param name="headerContent"></param>
         /// <returns></returns>
         private static string GetHeaderKey(object headerContent) {
-            // Si usas claves especÌficas, conviÈrtelo a la representaciÛn esperada
+            // Si usas claves espec√≠ficas, convi√©rtelo a la representaci√≥n esperada
             return GetHeaderText(headerContent);
         }
 

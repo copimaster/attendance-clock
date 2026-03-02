@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -5,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Data;
 using System.Diagnostics;
 using System.Reactive;
+using System.Threading.Tasks;
 using VTACheckClock.Models;
 using VTACheckClock.Services;
 using VTACheckClock.Services.Libs;
@@ -23,14 +25,19 @@ namespace VTACheckClock.ViewModels
 
         public PunchSyncPreviewViewModel()
         {
-            LoadPunches();
-
             DeletePunchCommand = ReactiveCommand.Create<PunchRecord>(DeletePunch);
             SyncNowCommand = ReactiveCommand.Create(() => true);
             CancelCommand = ReactiveCommand.Create(() => false);
         }
 
-        private void LoadPunches()
+        public async Task InitializeAsync()
+        {
+            await Task.Run(async () => {
+                await LoadPunchesAsync();
+            });
+        }
+
+        private async Task LoadPunchesAsync()
         {
             try
             {
@@ -64,6 +71,8 @@ namespace VTACheckClock.ViewModels
                     }
                 }
 
+                var tempPunches = new List<PunchRecord>();
+
                 foreach (var line in cached)
                 {
                     var parts = line.Split('|');
@@ -74,7 +83,7 @@ namespace VTACheckClock.ViewModels
                     var evtName = (evtId >= 0 && evtId < CommonObjs.EvTypes.Length) ? CommonObjs.EvTypes[evtId] : CommonObjs.EvTypes[0];
                     var empName = empMap != null && empMap.TryGetValue(parts[0], out var nm) ? nm : string.Empty;
 
-                    Punches.Add(new PunchRecord
+                    tempPunches.Add(new PunchRecord
                     {
                         IdEmployee = empId,
                         EmployeeFullName = empName,
@@ -84,6 +93,11 @@ namespace VTACheckClock.ViewModels
                         InternalEventTime = parts.Length > 3 ? parts[3] : string.Empty
                     });
                 }
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    Punches.Clear();
+                    foreach(var p in tempPunches) Punches.Add(p);
+                });
             }
             catch(Exception ex)
             {

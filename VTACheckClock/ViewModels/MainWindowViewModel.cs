@@ -744,7 +744,8 @@ namespace VTACheckClock.ViewModels
             try {
                 UrUClass.LoadCurrentReader();
 
-                if (!UrUClass.OpenReader()) {
+                if (!UrUClass.OpenReader())
+                {
                     KillMe("No se pudo inicializar el Lector de Huellas.");
                 }
 

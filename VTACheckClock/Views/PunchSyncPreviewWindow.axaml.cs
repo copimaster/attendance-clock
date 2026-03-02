@@ -1,6 +1,5 @@
-using Avalonia;
-using Avalonia.Controls;
 using Avalonia.ReactiveUI;
+using Avalonia.Threading;
 using ReactiveUI;
 using System;
 using VTACheckClock.ViewModels;
@@ -22,6 +21,12 @@ namespace VTACheckClock.Views
             {
                 Close(result);
             })));
+
+            this.WhenActivated(d => {
+                Dispatcher.UIThread.InvokeAsync(async () => {
+                    if (ViewModel != null) await ViewModel.InitializeAsync();
+                });
+            });
         }
     }
 }

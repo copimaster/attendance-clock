@@ -2,7 +2,6 @@
 using DPUruNet;
 using NLog;
 using System;
-using System.Diagnostics;
 using System.Threading;
 using static VTACheckClock.Views.MessageBox;
 
@@ -30,10 +29,8 @@ namespace VTACheckClock.Services.Libs
                     var reader_name = Reader.Description.Name;
                 }
 
-                if (CurrentReader != null) {
-                    CurrentReader.Dispose();
-                    CurrentReader = null;
-                }
+                CurrentReader?.Dispose();
+                CurrentReader = null;
 
                 CurrentReader = _readers[0];
             } catch {}

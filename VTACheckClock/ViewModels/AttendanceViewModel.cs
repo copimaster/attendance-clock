@@ -1,7 +1,9 @@
-﻿using ReactiveUI;
+using Avalonia.Threading;
+using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
 using System.Reactive;
+using System.Threading.Tasks;
 using VTACheckClock.Models;
 using VTACheckClock.Services;
 
@@ -13,12 +15,10 @@ namespace VTACheckClock.ViewModels
         private ObservableCollection<AttendanceRecord> _attendances = [];
         public ObservableCollection<OfficeData> Offices { get; } = [];
         private int _selOffice = -1;
-        private readonly ClockSettings? c_settings;
+        private ClockSettings? c_settings;
 
         public AttendanceViewModel()
         {
-            c_settings = RegAccess.GetClockSettings() ?? new ClockSettings();
-
             // Inicializar fechas
             StartDate = DateTime.Now.AddMonths(-1);
             EndDate = DateTime.Now;
@@ -26,11 +26,18 @@ namespace VTACheckClock.ViewModels
             // Inicializar colección de asistencias
             Attendances = [];
             Offices = [];
-            GetOffices();
 
             // Configurar comando para generar reporte
             //GenerateReportCommand = ReactiveCommand.Create(GenerateReport);
             CancelCommand = ReactiveCommand.Create(() => { });
+        }
+
+        public async Task InitializeAsync()
+        {
+            await Task.Run(async () => {
+                c_settings = RegAccess.GetClockSettings() ?? new ClockSettings();
+                await GetOfficesAsync();
+            });
         }
 
         public DateTimeOffset StartDate
@@ -60,22 +67,24 @@ namespace VTACheckClock.ViewModels
         //public ICommand GenerateReportCommand { get; }
         public ReactiveCommand<Unit, Unit> CancelCommand { get; }
 
-        private void GetOffices()
+        private async Task GetOfficesAsync()
         {
             var offices = CommonProcs.GetOffices(new ScantRequest { Question = "0" });
 
-            Offices.Clear();
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                Offices.Clear();
 
-            foreach (OfficeData off in offices)
-            {
-                Offices.Add(new OfficeData() {
-                    Offid = off.Offid,
-                    Offname = off.Offname,
-                    Offdesc = off.Offdesc
-                });
-            }
+                foreach (OfficeData off in offices)
+                {
+                    Offices.Add(new OfficeData() {
+                        Offid = off.Offid,
+                        Offname = off.Offname,
+                        Offdesc = off.Offdesc
+                    });
+                }
 
-            SelectedOffice = Offices.Count > 0 ? offices.FindIndex(o => o.Offid == c_settings.clock_office) : -1;
+                SelectedOffice = Offices.Count > 0 ? offices.FindIndex(o => o.Offid == c_settings?.clock_office) : -1;
+            });
         }
     }
 }

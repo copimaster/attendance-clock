@@ -1,9 +1,10 @@
-﻿using Avalonia.Threading;
+using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using NLog.Targets;
 using ReactiveUI;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Data;
@@ -36,12 +37,11 @@ namespace VTACheckClock.ViewModels
 
         public WebsocketLoggerViewModel()
         {
-            ReadLogFile(logFilePath + "\\AppLog.txt");
             ConfigFileSystemWatcher();
 
             ReloadWSCommand = ReactiveCommand.CreateFromTask(ReloadWS);
             CancelCommand = ReactiveCommand.Create(() => { });
-            GetLogFiles();
+
             this.WhenAnyValue(x => x.SelectedLogFileIndex)
             .Where(index => index != -1)
             .Subscribe(OnChangeLogFile);
@@ -53,6 +53,22 @@ namespace VTACheckClock.ViewModels
 
             LogEntries.CollectionChanged += LogEntries_CollectionChanged;
             _realtime = App.ServiceProvider.GetRequiredService<IRealtimeService>();
+        }
+
+        public async Task InitializeAsync()
+        {
+            await Task.Run(async () => {
+                var files = GetLogFiles();
+                var entries = await ReadLogFileAsync(logFilePath + "\\AppLog.txt");
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    LogFiles.Clear();
+                    foreach(var f in files) LogFiles.Add(f);
+
+                    LogEntries.Clear();
+                    foreach(var e in entries) LogEntries.Add(e);
+                });
+            });
         }
 
         public string LogText
@@ -125,45 +141,67 @@ namespace VTACheckClock.ViewModels
         /// <summary>
         /// NLog - Allow other processes to read log file
         /// </summary>
-        private void ReadLogFile(string fullFilePath)
+        private static async Task<List<LogEntry>> ReadLogFileAsync(string fullFilePath)
         {
-            try {
-                LogEntries.Clear();
-
-                using var f = new FileStream(fullFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite); 
+            var entries = new List<LogEntry>();
+            try
+            {
+                using var f = new FileStream(fullFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, true);
                 using var s = new StreamReader(f);
-                var newLines = s.ReadToEnd().Split('\n');
+                var content = await s.ReadToEndAsync();
+                var newLines = content.Split('\n');
 
                 var fileInfo = new FileInfo(fullFilePath);
 
-                if(fileInfo.Name.StartsWith("AppLog")) { 
+                if (fileInfo.Name.StartsWith("AppLog"))
+                {
                     foreach (var line in newLines)
                     {
-                        if (!string.IsNullOrWhiteSpace(line)) {
-                            //Debug.WriteLine(line.TrimEnd('\r') + "\n");
-                            LogEntries.Add(new LogEntry() {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            entries.Add(new LogEntry()
+                            {
                                 Timestamp = DateTime.Now,
                                 Message = line
                             });
                         }
                     }
-                } else {
-                    var cacheInfo = File.ReadLines(fullFilePath).Skip(1).ToList();
+                }
+                else
+                {
+                    var cacheInfo = File.ReadLines(fullFilePath).Skip(1).ToList(); // This is still synchronous for cache files, might need optimization later
                     var emp_dt = GlobalVars.AppCache.RetrieveEmployees();
 
                     foreach (string infoItem in cacheInfo)
                     {
-                        LogEntries.Add(new LogEntry() {
+                        entries.Add(new LogEntry()
+                        {
                             Timestamp = DateTime.Now,
                             Message = GetCacheMessage(infoItem, emp_dt)
                         });
                     }
                 }
-
-                //Dispatcher.UIThread.InvokeAsync(() => LogText += newLines);
-            } catch (Exception ex) {
-                LogText = ex.ToString();
             }
+            catch (Exception ex)
+            {
+                //LogText = ex.ToString();
+                Console.WriteLine(ex);
+            }
+            return entries;
+        }
+
+        private void ReadLogFile(string fullFilePath)
+        {
+            // Mantener compatibilidad con FileSystemWatcher (que corre en otro hilo)
+            // pero con cuidado. Idealmente deberíamos llamar a InitializeAsync o similar.
+            // Para simplificar, usaremos la versión asíncrona y bloquearemos en Task.Run para no bloquear UI si se llama desde UI thread por error,
+            // o simplemente disparar y olvidar.
+
+            Dispatcher.UIThread.InvokeAsync(async () => {
+                var entries = await ReadLogFileAsync(fullFilePath);
+                LogEntries.Clear();
+                foreach (var e in entries) LogEntries.Add(e);
+            });
         }
 
         private void LogFileChanged(object o, FileSystemEventArgs e)
@@ -197,8 +235,9 @@ namespace VTACheckClock.ViewModels
             //sw.WriteLine("This is the new text");
         }
 
-        private void GetLogFiles()
+        private List<LogFile> GetLogFiles()
         {
+            var files = new List<LogFile>();
             try {
                 DirectoryInfo archiveDirectory = new(Path.Combine(logFilePath, "archive"));
                 DirectoryInfo rootDirect = new(logFilePath);
@@ -207,7 +246,7 @@ namespace VTACheckClock.ViewModels
                     FileInfo[] fileList = archiveDirectory.GetFiles("*.txt");
 
                     foreach (FileInfo file in fileList) {
-                        LogFiles.Add(new LogFile() {
+                        files.Add(new LogFile() {
                             Directory = "archive",
                             Filename = file.Name,
                             CustomName = file.Name
@@ -219,7 +258,7 @@ namespace VTACheckClock.ViewModels
                     FileInfo[] rooFileList = rootDirect.GetFiles("*.txt");
                 
                     foreach (FileInfo file in rooFileList) {
-                        LogFiles.Add(new LogFile() {
+                        files.Add(new LogFile() {
                             Directory = "",
                             Filename = file.Name,
                             CustomName = file.Name
@@ -243,7 +282,7 @@ namespace VTACheckClock.ViewModels
 
                         if (!shouldIgnore)
                         {
-                            LogFiles.Add(new LogFile() {
+                            files.Add(new LogFile() {
                                 Directory = currentCacheSubdir,
                                 Filename = file.Name,
                                 CustomName = CacheMan.ReplaceFileName(file.Name) + "_CURRENT"
@@ -262,7 +301,7 @@ namespace VTACheckClock.ViewModels
                         bool shouldIgnore = ignore_files.Any(ignorePattern => file?.Name.IndexOf(ignorePattern, StringComparison.OrdinalIgnoreCase) >= 0);
 
                         if (!shouldIgnore) { 
-                            LogFiles.Add(new LogFile() {
+                            files.Add(new LogFile() {
                                 Directory = oldCacheSubdir,
                                 Filename = file.Name,
                                 CustomName = CacheMan.ReplaceFileName(file.Name) + "_OLD"
@@ -271,10 +310,11 @@ namespace VTACheckClock.ViewModels
                     }
                 }
 
-                if (LogFiles.Count == 1) SelectedLogFileIndex = 0;
+                // if (files.Count == 1) SelectedLogFileIndex = 0; // Move to UI thread logic if needed
             } catch (Exception ex) {
                 Console.WriteLine($"Error al listar archivos .txt: {ex.Message}");
             }
+            return files;
         }
 
         private async void OnChangeLogFile(int index)

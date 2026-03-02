@@ -6,6 +6,10 @@ using System.Net.Mail;
 using System.Text;
 using System.Threading.Tasks;
 using VTACheckClock.Models;
+using MimeKit;
+using MailKit.Security;
+using SmtpClient = MailKit.Net.Smtp.SmtpClient;
+using LegacySmtpClient = System.Net.Mail.SmtpClient;
 
 namespace VTACheckClock.Services
 {
@@ -13,15 +17,79 @@ namespace VTACheckClock.Services
     {
         private static readonly Logger log = LogManager.GetLogger("app_logger");
 
-        private static bool SetMailConfig(SmtpClient oSmtpClient, ref string recipients)
+        /// <summary>
+        /// Asynchronously sends an email message with the specified subject and HTML body to the configured recipients.
+        /// </summary>
+        /// <remarks>If the mail configuration cannot be retrieved, the email is not sent and the method
+        /// returns immediately. Any exceptions that occur during the sending process are logged for diagnostic purposes
+        /// but are not propagated to the caller.</remarks>
+        /// <param name="subject">The subject line of the email message.</param>
+        /// <param name="body">The HTML content to include in the body of the email message.</param>
+        /// <returns>A task that represents the asynchronous send operation.</returns>
+        public static async Task SendEmailAsync(string subject, string body)
         {
-            bool setConfig = false;
+            if (!GetMailConfig(out string host, out int port, out string username, out string password, out string recipients))
+            {
+                return;
+            }
+
+            try
+            {
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("VTSoftware", username));
+                SetToAddress(message, recipients);
+                message.Subject = subject;
+
+                var bodyBuilder = new BodyBuilder { HtmlBody = body };
+                message.Body = bodyBuilder.ToMessageBody();
+
+                using var client = new SmtpClient();
+                client.Timeout = 30000;
+
+                await client.ConnectAsync(host, port, SecureSocketOptions.Auto);
+
+                // Autenticar
+                client.AuthenticationMechanisms.Remove("XOAUTH2"); // Deshabilitar OAuth si no se usa
+                await client.AuthenticateAsync(username, password);
+
+                // Enviar
+                await client.SendAsync(message);
+
+                // Desconectar
+                await client.DisconnectAsync(true);
+            }
+            catch (Exception ex)
+            {
+                log.Warn(ex, $"Error enviando correo (MailKit): {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Retrieves the mail configuration settings required for sending emails, including the SMTP server host, port,
+        /// authentication credentials, and recipient addresses.
+        /// </summary>
+        /// <remarks>If the configuration is incomplete or invalid, a warning is logged detailing the
+        /// missing or incorrect settings. All output parameters are set to empty or default values when the
+        /// configuration is not valid.</remarks>
+        /// <param name="host">When the method returns <see langword="true"/>, contains the SMTP server host address used for sending
+        /// emails. Otherwise, set to an empty string.</param>
+        /// <param name="port">When the method returns <see langword="true"/>, contains the port number for the SMTP server. Must be a
+        /// valid integer greater than zero. Otherwise, set to zero.</param>
+        /// <param name="username">When the method returns <see langword="true"/>, contains the username for authenticating with the SMTP
+        /// server. Otherwise, set to an empty string.</param>
+        /// <param name="password">When the method returns <see langword="true"/>, contains the password for authenticating with the SMTP
+        /// server. Otherwise, set to an empty string.</param>
+        /// <param name="recipients">When the method returns <see langword="true"/>, contains a comma-separated list of email addresses to which
+        /// emails will be sent. Otherwise, set to an empty string.</param>
+        /// <returns>true if the mail configuration is valid and enabled; otherwise, false.</returns>
+        private static bool GetMailConfig(out string host, out int port, out string username, out string password, out string recipients)
+        {
             var config = RegAccess.GetMainSettings() ?? new MainSettings();
 
-            var host = config.MailServer; // tuServidorSmtp
-            bool validPort = int.TryParse(config?.MailPort, out int port);
-            var username = config.MailUser;
-            var password = config.MailPass;
+            host = config.MailServer ?? "";
+            bool validPort = int.TryParse(config?.MailPort, out port);
+            username = config.MailUser ?? "";
+            password = config.MailPass ?? "";
             bool IsEnabled = config.MailEnabled;
             recipients = config.MailRecipient ?? "";
 
@@ -31,21 +99,10 @@ namespace VTACheckClock.Services
             bool hasPass = !string.IsNullOrWhiteSpace(password);
             bool hasRecipients = !string.IsNullOrEmpty(recipients);
 
-            if (hasHost && hasPort && hasUser && hasPass && hasRecipients && IsEnabled)
-            {
-                oSmtpClient.Host = host!;
-                oSmtpClient.Port = port;
-                oSmtpClient.Credentials = new NetworkCredential(username, password);
-                oSmtpClient.UseDefaultCredentials = false;
-                oSmtpClient.EnableSsl = true;
-                oSmtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
+            bool isValid = hasHost && hasPort && hasUser && hasPass && hasRecipients && IsEnabled;
 
-                setConfig = true;
-            }
-
-            if (!setConfig && IsEnabled)
+            if (!isValid && IsEnabled)
             {
-                // Log detallado de configuración faltante o inválida
                 var detalles = $"Host='{host}', Port='{config?.MailPort}', User='{username}', Recipients='{recipients}', Habilitado={IsEnabled}";
                 var faltantes = new StringBuilder();
                 if (!IsEnabled) faltantes.Append("MailEnabled=false; ");
@@ -58,16 +115,61 @@ namespace VTACheckClock.Services
                 log.Warn($"Configuración SMTP incompleta/incorrecta. {detalles}. Falta: {faltantes.ToString().Trim()}");
             }
 
-            return setConfig;
+            return isValid;
         }
 
-        public static async Task SendEmailAsync(string subject, string body)
+        private static void SetToAddress(MimeMessage message, string emails)
+        {
+            char[] separators = [',', ';'];
+            foreach (var email in SplitEmailsByDelimiter(emails, separators))
+            {
+                var em = email.Trim();
+                try
+                {
+                    if (MailboxAddress.TryParse(em, out var mailboxAddress))
+                    {
+                        message.To.Add(mailboxAddress);
+                    }
+                    else
+                    {
+                        log.Warn($"Dirección de correo inválida ignorada: '{em}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Warn(ex, $"Dirección de correo inválida ignorada: '{em}'");
+                }
+            }
+        }
+
+        [Obsolete("Use MailKit implementation instead. This method relies on System.Net.Mail.SmtpClient which is deprecated.")]
+        private static bool SetMailConfig_Legacy(LegacySmtpClient oSmtpClient, ref string recipients)
+        {
+            if (GetMailConfig(out string host, out int port, out string username, out string password, out string configRecipients))
+            {
+                recipients = configRecipients;
+
+                oSmtpClient.Host = host;
+                oSmtpClient.Port = port;
+                oSmtpClient.Credentials = new NetworkCredential(username, password);
+                oSmtpClient.UseDefaultCredentials = false;
+                oSmtpClient.EnableSsl = true;
+                oSmtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        [Obsolete("Use MailKit implementation instead.")]
+        public static async Task SendEmailAsync_Legacy(string subject, string body)
         {
             try {
-                using SmtpClient oSmtpClient = new();
+                using LegacySmtpClient oSmtpClient = new();
                 string recipients = "";
 
-                if (!SetMailConfig(oSmtpClient, ref recipients)) {
+                if (!SetMailConfig_Legacy(oSmtpClient, ref recipients)) {
                     return;
                 }
 
@@ -79,7 +181,7 @@ namespace VTACheckClock.Services
                     From = new MailAddress(credentials?.UserName ?? "", "VTSoftware")
                 };
 
-                SetToAddress(ref oMailMessage, recipients);
+                SetToAddress_Legacy(ref oMailMessage, recipients);
 
                 oMailMessage.Subject = subject;
                 oMailMessage.SubjectEncoding = Encoding.UTF8;
@@ -88,7 +190,6 @@ namespace VTACheckClock.Services
                 oMailMessage.IsBodyHtml = true;
 
                 await oSmtpClient.SendMailAsync(oMailMessage);
-                //log.Info($"Correo enviado correctamente a: {recipients}");
             }
             catch (SmtpFailedRecipientsException ex)
             {
@@ -116,7 +217,8 @@ namespace VTACheckClock.Services
         /// </summary>
         /// <param name="oMailMessage"></param>
         /// <param name="emails">Mails concatenated in a text string with a special character.</param>
-        private static void SetToAddress(ref MailMessage oMailMessage, string emails)
+        [Obsolete("Use MailKit implementation instead.")]
+        private static void SetToAddress_Legacy(ref MailMessage oMailMessage, string emails)
         {
             char[] separators = [',', ';'];
             //int added = 0;
@@ -204,10 +306,7 @@ namespace VTACheckClock.Services
         /// <returns></returns>
         public static string ExportDatatableToHtml(DataTable dt)
         {
-            if (dt == null || dt.Rows.Count == 0)
-            {
-                return "";
-            }
+            if (dt == null || dt.Rows.Count == 0) return "";
 
             StringBuilder strHTMLBuilder = new();
             strHTMLBuilder.Append("<table border='1' cellpadding='0' cellspacing='0' style='border:0;border-style:hidden;'>");
