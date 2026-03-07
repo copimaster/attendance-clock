@@ -112,15 +112,15 @@
 										<StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="2 0 0 0">
 											<Button Height="50" Command="{ Binding $parent[Window].DataContext.LogOutCommand }" ToolTip.Tip="Salir">
 												<!--<Image Source="/Assets/btnExit.png" Height="40" />-->
-                        <PathIcon Data="{StaticResource sign_out_regular}" Foreground="Red" Width="30" Height="30" />
-                      </Button>
+												<PathIcon Data="{StaticResource sign_out_regular}" Foreground="Red" Width="30" Height="30" />
+											</Button>
 											<Button Height="50" Command="{ Binding $parent[Window].DataContext.PreviewLoggerCommand }" ToolTip.Tip="Log de comunicación WebSocket">
 												<!--<Image Source="/Assets/websocket.jpg" Height="40"/>-->
-                        <PathIcon Data="{StaticResource shifts_activity_regular}" Foreground="Purple" Width="30" Height="30" />
-                      </Button>
+												<PathIcon Data="{StaticResource shifts_activity_regular}" Foreground="Purple" Width="30" Height="30" />
+											</Button>
 										</StackPanel>
 										
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0 0 2 0">
+										<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0 0 2 0">
 											<Button Name="btnSync" Margin="2 0" Width="50" Height="50" Command="{ Binding SyncEvtCommand }" ToolTip.Tip="Sincronización...">
 												<!--<Image Source="/Assets/btnSync.png" Height="40"/>-->
 												<PathIcon Data="{StaticResource arrow_sync_regular}" Foreground="BlueViolet" Width="30" Height="30" />
@@ -185,14 +185,24 @@
 					<Label IsVisible="{ Binding !IsNetConnected }" Content="{ Binding NetworkConStatus }" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="Red" />
 					<Label IsVisible="{ Binding IsNetConnected }" Content="{ Binding NetworkConStatus }" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="#90ee90" />
 					<Label Content="{ Binding Office }" FontSize="14" Padding="2 6 0 0" />
+          
+					<!-- Reader Status -->
+					<Grid Background="Red" IsVisible="{ Binding !IsReaderConnected }" Margin="10,0,0,0">
+					 <PathIcon Data="{StaticResource fingerprint_off_regular}" Height="20" Width="20" Foreground="White" Margin="4,0"/>
+					</Grid>
+					<Grid Background="#90ee90" IsVisible="{ Binding IsReaderConnected }" Margin="10,0,0,0">
+						<PathIcon Data="{StaticResource fingerprint_regular}" Height="20" Width="20" Foreground="Black" Margin="4,0"/>
+					</Grid>
+					<Label IsVisible="{ Binding !IsReaderConnected }" Content="{ Binding ReaderStatus }" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="Red" Foreground="White" />
+					<Label IsVisible="{ Binding IsReaderConnected }" Content="Lector OK" Padding="6 6 6 0" FontSize="14" FontWeight="Black" Background="#90ee90" />
 				</StackPanel>
         
-        <!-- WS status: Disabled, Disconnected, Connected -->
-        <TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketDisabled }" Text="{Binding ConnectionStatus}" Foreground="#8B8B8B" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
-        <TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketDisconnected }" Text="{Binding ConnectionStatus}" Foreground="Red" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
-        <TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketConnected}" Text="{Binding ConnectionStatus}" Foreground="Blue" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
+				<!-- WS status: Disabled, Disconnected, Connected -->
+				<TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketDisabled }" Text="{Binding ConnectionStatus}" Foreground="#8B8B8B" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
+				<TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketDisconnected }" Text="{Binding ConnectionStatus}" Foreground="Red" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
+				<TextBlock Grid.Column="1" IsVisible="{Binding IsWebSocketConnected}" Text="{Binding ConnectionStatus}" Foreground="Blue" VerticalAlignment="Center" TextAlignment="Center" FontSize="14" />
 				
-        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+				<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
 					<Label Content="{ Binding CurrentLongDate }" FontSize="14" Padding="0 8 0 0" />
 					<Label FontSize="14" Padding="10 8 0 0" FontStyle="Italic">Powered by: </Label>
 					<Image Margin="4, 0" Source="/Assets/vt_software_logo.png" Height="20"></Image>
@@ -200,8 +210,18 @@
 			</Grid>
 		</Grid>
 
+		<!-- Overlay para mostrar estado del lector desconectado -->
+		<Grid x:Name="ReaderStatusOverlay" IsVisible="{Binding !IsReaderConnected}" Background="#cc33241e" ZIndex="9">
+			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+				<PathIcon Data="{StaticResource fingerprint_off_regular}" Width="80" Height="80" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+				<TextBlock Text="Lector de Huella Desconectado" Foreground="White" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+				<TextBlock Text="{Binding ReaderStatus}" Foreground="#FFDDDD" FontSize="20" HorizontalAlignment="Center"/>
+                <TextBlock Text="Conecte el lector para continuar..." Foreground="#FFAAAA" FontSize="16" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,20,0,0"/>
+			</StackPanel>
+		</Grid>
+
 		<!-- Overlay que se mostrará cuando se abra la ventana secundaria -->
-		<Panel x:Name="OverlayPanel" IsVisible="False" Background="#80000000">
+		<Panel x:Name="OverlayPanel" IsVisible="False" Background="#80000000" ZIndex="10">
 			<!-- El color de fondo con transparencia (80 = 50% opacidad (#80000000) y 60% (#99000000)) -->
 		</Panel>
    </Panel>

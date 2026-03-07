@@ -477,14 +477,18 @@ namespace VTACheckClock.Services
                 string[] comm_data = req.Question.Split(['|']);
                 DataTable dt = await DBMethods.PunchRegisterAsync(int.Parse(comm_data[0]), int.Parse(comm_data[1]), int.Parse(comm_data[2]), comm_data[3], comm_data[4]);
 
-                bool has_errors = dt.Rows[0]["ErrMess"].ToString() != "None";
-                if (has_errors) {
-                    log.Warn("Error while sending employee data: " + dt.Rows[0]["ErrMess"].ToString());
+                bool has_errors = false;
+                if (dt.Rows.Count > 0 && dt.Columns.Contains("ErrMess"))
+                {
+                    has_errors = dt.Rows[0]["ErrMess"].ToString() != "None";
+                    if (has_errors) {
+                        log.Warn("Error while sending employee data: " + dt.Rows[0]["ErrMess"].ToString());
+                    }
                 }
 
                 return !has_errors;
             } catch(Exception ex) {
-                log.Warn("Error while sending employee data: " + ex.Message);
+                log.Error(ex, "Error while registered employee data.");
                 return false;
             }
         }

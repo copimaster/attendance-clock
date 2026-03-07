@@ -387,7 +387,7 @@ namespace VTACheckClock.Services
                             return true;
                     } catch {
                         // Continuar con el siguiente host
-                        return false;
+                        continue;
                     }
                 }
 

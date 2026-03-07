@@ -1,5 +1,4 @@
 using Avalonia.Animation;
-using Avalonia.Controls;
 using Avalonia.Threading;
 using DPUruNet;
 using ExCSS;
@@ -57,6 +56,7 @@ namespace VTACheckClock.ViewModels
         private Bitmap? _logoImage;
         private Bitmap? _noticeImage;
         private bool _emptyNotices;
+        private bool _isReconnectingReader = false;
 
         //private SourceList<Employee> _sourceList = new();
         //private readonly ReadOnlyObservableCollection<Employee> _attsList;
@@ -165,6 +165,21 @@ namespace VTACheckClock.ViewModels
         {
             get => _empName;
             set => this.RaiseAndSetIfChanged(ref _empName, value);
+        }
+
+        private string _readerStatus = "Inicializando lector...";
+        private bool _isReaderConnected = false;
+
+        public string ReaderStatus
+        {
+            get => _readerStatus;
+            set => this.RaiseAndSetIfChanged(ref _readerStatus, value);
+        }
+
+        public bool IsReaderConnected
+        {
+            get => _isReaderConnected;
+            set => this.RaiseAndSetIfChanged(ref _isReaderConnected, value);
         }
 
         public string EmployeeEvent
@@ -361,9 +376,48 @@ namespace VTACheckClock.ViewModels
             this.WhenAnyValue(x => x.NewNotice).Where(y => y != null).Subscribe(AddNewNotice!);
             this.WhenAnyValue(x => x.SearchText).Throttle(TimeSpan.FromMilliseconds(500)).ObserveOn(RxApp.MainThreadScheduler).Subscribe(DoSearch!);
 
-            NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
+            //NetworkChange.NetworkAvailabilityChanged += (s, e) => OnNetworkStatusChanged("AvailabilityChanged");
+            NetworkChange.NetworkAddressChanged += (s, e) => OnNetworkStatusChanged("AddressChanged");
 
             SendEmailCommand = ReactiveCommand.CreateFromTask(async () => await SendEmployeesWithNoCheckInOut());
+        }
+
+        private DateTime _lastNetworkEventTime = DateTime.MinValue;
+        private void OnNetworkStatusChanged(string eventName)
+        {
+            var now = DateTime.Now;
+            if ((now - _lastNetworkEventTime).TotalSeconds < 3) return;
+            _lastNetworkEventTime = now;
+
+            Dispatcher.UIThread.InvokeAsync(async () => {
+                try {
+                    bool wasConnected = IsNetConnected;
+                    await ToggleConnIndicator(); // This updates IsNetConnected
+
+                    if (IsNetConnected && !wasConnected) {
+                        log.Warn("El equipo se conectó de nuevo a Internet: " + eventName);
+                        
+                        // Esperar durante 5 segundos antes de sincronizar datos
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+
+                        // Verificar si la conexión sigue activa antes de sincronizar
+                        await ToggleConnIndicator();
+                        
+                        if (IsNetConnected) {
+                            Messenger.Send("ToggleOverlay", true);
+                            await SyncWithLoader();
+                            Messenger.Send("ToggleOverlay", false);
+                            await ReloadWebSocket();
+                        } else {
+                            log.Warn("La conexión a Internet se perdió nuevamente antes de sincronizar.");
+                        }
+                    } else if (!IsNetConnected && wasConnected) { 
+                        log.Warn("El equipo se desconectó de Internet.");
+                    }
+                } catch(Exception ex) {
+                    log.Warn("OnNetworkAvailabilityChangedError: " + ex.Message);
+                }
+            });
         }
 
         private void AttsList_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -433,38 +487,7 @@ namespace VTACheckClock.ViewModels
             _SelectedTransition = PageTransitions[1];
         }
 
-        private bool IsInternetConnected;
-        private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
-        {
-            try {
-                // Actualizar el estado de conexión a internet
-                IsInternetConnected = e.IsAvailable;
 
-                Dispatcher.UIThread.InvokeAsync(async () => {
-                    await ToggleConnIndicator();
-
-                    if (IsInternetConnected) {
-                        // Esperar durante 5 segundos antes de sincronizar datos
-                        await Task.Delay(TimeSpan.FromSeconds(5));
-
-                        // Verificar si la conexión sigue activa antes de sincronizar
-                        if (IsInternetConnected) {
-                            log.Warn("El equipo se conectó de nuevo a Internet.");
-
-                            await SyncWithLoader();
-                            await ReloadWebSocket();
-                        } else {
-                            log.Warn("La conexión a Internet se perdió nuevamente antes de sincronizar.");
-                        }
-                    } else { 
-                        log.Warn("El equipo se desconectó de Internet.");
-                    }
-                });
-            } catch(Exception ex) {
-                IsInternetConnected = false;
-                log.Warn("OnNetworkAvailabilityChangedError: " + ex.Message);
-            }
-        }
 
         private bool IsDuplicated(Employee? item) => AttsList != null && AttsList.Any(e => e.EventTime == item.EventTime && e.EventType == item.EventType && e.EmpID == item.EmpID);
 
@@ -586,7 +609,12 @@ namespace VTACheckClock.ViewModels
             MakeClockSession();
             SetOffice();
             SetLogo();
-            StartReader();
+            
+            if (!StartReader(silent: true))
+            {
+                _ = ReconnectReaderAsync();
+            }
+
             ConfigureWebSocketEvents();
             InitializeWebSocket();
             
@@ -738,27 +766,86 @@ namespace VTACheckClock.ViewModels
         /// <summary>
         /// Inicializa el lector de huella dactilar y lo prepara para la captura.
         /// </summary>
-        private void StartReader()
+        private bool StartReader(bool silent = false)
         {
             //if (!GlobalVars.NoFPReader) return;
             try {
                 UrUClass.LoadCurrentReader();
 
-                if (!UrUClass.OpenReader())
+                if (!UrUClass.OpenReader(silent))
                 {
-                    KillMe("No se pudo inicializar el Lector de Huellas.");
+                    if(!silent) KillMe("No se pudo inicializar el Lector de Huellas.");
+                    Dispatcher.UIThread.InvokeAsync(() => {
+                        IsReaderConnected = false;
+                        ReaderStatus = "Error al inicializar lector";
+                    });
+                    return false;
                 }
 
                 if (!UrUClass.StartCaptureAsync(OnCaptured))
                 {
-                    KillMe("El manejador de evento del Lector de Huella no se puedo asociar.");
+                    if(!silent) KillMe("El manejador de evento del Lector de Huella no se puedo asociar.");
+                    Dispatcher.UIThread.InvokeAsync(() => {
+                        IsReaderConnected = false;
+                        ReaderStatus = "Error al iniciar captura";
+                    });
+                    return false;
                 }
-            } catch(Exception ex) {
-                Dispatcher.UIThread.InvokeAsync(async () => {
-                    log.Warn("Error general del Lector de Huellas ==> " + ex.Message);
-                    await Show(null, "Lector no encontrado", "No se ha encontrado ningún lector de huella dactilar o no se ha podido tener acceso al mismo.\n\nPruebe una de las siguientes opciones:\n\n1. Rectifique que el lector se encuentra debidamente conectado al equipo; deberá ver una luz azul en el lector que así lo indica.\n2. Asegúrese que los controladores necesarios han sido correctamente instalados.\n3. Conecte y desconecte el lector o conéctelo a un puerto USB diferente.\n4. Reinicie el equipo.\n\nSi el problema persiste, póngase en contacto con el administrador del sistema.\n\nLa aplicación terminará ahora.", MessageBoxButtons.Ok);
-                    KillMe("Error general del Lector de Huellas ==> " + ex.Message);
+
+                Dispatcher.UIThread.InvokeAsync(() => {
+                    IsReaderConnected = true;
+                    ReaderStatus = "Lector conectado";
                 });
+
+                return true;
+            } catch(Exception ex) {
+                if (!silent)
+                {
+                    Dispatcher.UIThread.InvokeAsync(async () => {
+                        log.Warn("Error general del Lector de Huellas ==> " + ex.Message);
+                        await Show(null, "Lector no encontrado", "No se ha encontrado ningún lector de huella dactilar o no se ha podido tener acceso al mismo.\n\nPruebe una de las siguientes opciones:\n\n1. Rectifique que el lector se encuentra debidamente conectado al equipo; deberá ver una luz azul en el lector que así lo indica.\n2. Asegúrese que los controladores necesarios han sido correctamente instalados.\n3. Conecte y desconecte el lector o conéctelo a un puerto USB diferente.\n4. Reinicie el equipo.\n\nSi el problema persiste, póngase en contacto con el administrador del sistema.\n\nLa aplicación terminará ahora.", MessageBoxButtons.Ok);
+                        KillMe("Error general del Lector de Huellas ==> " + ex.Message);
+                    });
+                } else {
+                     Dispatcher.UIThread.InvokeAsync(() => {
+                        IsReaderConnected = false;
+                        ReaderStatus = "Error: " + ex.Message;
+                    });
+                }
+                return false;
+            }
+        }
+
+        private async Task ReconnectReaderAsync()
+        {
+            if (_isReconnectingReader) return;
+            _isReconnectingReader = true;
+
+            try
+            {
+                while (true)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        ReaderStatus = "Buscando lector...";
+                    });
+
+                    await Task.Delay(3000); // Esperar 3 segundos antes de reintentar
+
+                    // Intentar cerrar cualquier conexión previa fallida
+                    try { UrUClass.CancelCaptureAndCloseReader(OnCaptured); } catch { }
+
+                    bool success = await Task.Run(() => StartReader(silent: true));
+
+                    if (success) break;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex, "Error en el proceso de reconexión del lector");
+            }
+            finally
+            {
+                _isReconnectingReader = false;
             }
         }
         #endregion
@@ -856,7 +943,22 @@ namespace VTACheckClock.ViewModels
             IDThreshold = CommonProcs.ParamInt(7) * 1 / CommonProcs.ParamInt(8);
 
             // Check capture quality and throw an error if bad.
-            if (!UrUClass.CheckCaptureResult(captureResult)) return;
+            try
+            {
+                if (!UrUClass.CheckCaptureResult(captureResult)) return;
+            }
+            catch (Exception ex)
+            {
+                log.Error(ex, "Error en la captura de huella dactilar");
+                Dispatcher.UIThread.InvokeAsync(async () => {
+                    // Update Status
+                    IsReaderConnected = false;
+                    ReaderStatus = "Lector desconectado";
+                    
+                    _ = ReconnectReaderAsync();
+                });
+                return;
+            }
 
             DataResult<Fmd> preIdentify = FeatureExtraction.CreateFmdFromFid(captureResult.Data, Constants.Formats.Fmd.ISO);
             IdentifyResult identified = Comparison.Identify(preIdentify.Data, 0, las_fmds, IDThreshold, 1);
@@ -865,17 +967,13 @@ namespace VTACheckClock.ViewModels
                 FoundIndex = (identified.Indexes.Length > 0) ? identified.Indexes[0][0] : -1;
                 Dispatcher.UIThread.InvokeAsync(PunchRegister);
                 //UrUClass.ControlControls(4, btnParseID);
-            } else if (identified.ResultCode == Constants.ResultCode.DP_DEVICE_BUSY) {
-                Dispatcher.UIThread.InvokeAsync(async () => {
-                    await ShowMessage("El lector no responde", "El lector de huella dactilar está ocupado y no responde en estos momentos. Por favor, espere unos segundos e inténtelo de nuevo");
+            } 
+            else if (identified.ResultCode == Constants.ResultCode.DP_DEVICE_BUSY) {
+                Dispatcher.UIThread.InvokeAsync(() => {
+                    IsReaderConnected = false;
+                    ReaderStatus = "Lector ocupado o no responde";
+                    _ = ReconnectReaderAsync();
                 });
-            } else {
-                forceexit = true;
-                Dispatcher.UIThread.InvokeAsync(async() => {
-                    await ShowMessage("Fallo del lector", "Ha ocurrido un fallo con el lector de huella dactilar o ha dejado de ser reconocido por el sistema.\n\nLa aplicación no puede continuar y se cerrará ahora.", -1, -1, SizeToContent.Height);
-                    KillMe("Fallo del Lector dactilar o ha dejado de ser reconocido por el sistema.");
-                });
-                //UrUClass.ControlControls(3, this);
             }
         }
 

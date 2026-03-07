@@ -1,4 +1,4 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using DPUruNet;
 using NLog;
 using System;
@@ -40,7 +40,7 @@ namespace VTACheckClock.Services.Libs
         /// Inicializa el dispositivo de lectura de huella dactilar y verifica el estado del mismo.
         /// </summary>
         /// <returns>True si la operación fue exitosa.</returns>
-        public static bool OpenReader()
+        public static bool OpenReader(bool silent = false)
         {
             if(CurrentReader == null) return false;
 
@@ -51,7 +51,7 @@ namespace VTACheckClock.Services.Libs
 
             if (result != Constants.ResultCode.DP_SUCCESS)
             {
-                Show(null, "Lector de Huella", "El dispositivo respondió con el error:  " + result, MessageBoxButtons.Ok);
+                if(!silent) Show(null, "Lector de Huella", "El dispositivo respondió con el error:  " + result, MessageBoxButtons.Ok);
                 Reset = true;
                 return false;
             }
@@ -89,6 +89,11 @@ namespace VTACheckClock.Services.Libs
                 using Tracer tracer = new("UrUClass::CancelCaptureAndCloseReader");
                 if (CurrentReader != null)
                 {
+                    if (OnCaptured != null)
+                    {
+                        CurrentReader.On_Captured -= OnCaptured;
+                    }
+
                     CurrentReader.CancelCapture();
                     CurrentReader.Dispose();
 
@@ -143,14 +148,14 @@ namespace VTACheckClock.Services.Libs
                 if (captureResult.ResultCode != Constants.ResultCode.DP_SUCCESS)
                 {
                     Reset = true;
-                    Log.Warn("Error en la captura de huella: " + captureResult.ResultCode.ToString());
+                    Log.Warn($"CheckCaptureResult - Error en la captura de huella: { captureResult.ResultCode}");
                     throw new Exception(captureResult.ResultCode.ToString());
                 }
 
                 // Send message if quality shows fake finger
                 if (captureResult.Quality != Constants.CaptureQuality.DP_QUALITY_CANCELED)
                 {
-                    Log.Warn("Calidad de huella no aceptable: " + captureResult.Quality);
+                    Log.Warn($"CheckCaptureResult - Calidad de huella no aceptable: { captureResult.Quality}");
                     throw new Exception("Quality - " + captureResult.Quality);
                 }
 

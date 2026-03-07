@@ -121,7 +121,7 @@ namespace VTACheckClock.Services
 
             _hubConnection!.Reconnecting += error =>
             {
-                _log.Warn($"Attempting to reconnect: {error?.Message}");
+                _log.Warn($"Attempting to reconnect <{error?.Message} {error?.InnerException?.Message}>");
                 // Notificar estado de reconexión
                 ConnectionStateChanged?.Invoke(this, HubConnectionState.Reconnecting);
                 return Task.CompletedTask;
